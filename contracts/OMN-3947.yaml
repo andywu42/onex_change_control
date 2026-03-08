@@ -1,0 +1,33 @@
+schema_version: "1.0.0"
+ticket_id: OMN-3947
+summary: "Manual trigger CLI command: omni-infra artifact-reconcile publishes ModelManualReconcileCommand to onex.cmd.artifact.reconcile.v1"
+is_seam_ticket: true
+interface_change: true
+interfaces_touched:
+  - topics
+  - events
+evidence_requirements:
+  - kind: tests
+    description: >
+      Click command artifact-reconcile is registered in the CLI entry point;
+      --repo, --files, and --reason options are all present and correctly typed.
+    command: "uv run omni-infra artifact-reconcile --help"
+
+  - kind: tests
+    description: >
+      ModelManualReconcileCommand is published to onex.cmd.artifact.reconcile.v1 using
+      KAFKA_BOOTSTRAP_SERVERS from env (local bus by default); command exits 0 on success.
+    command: "uv run pytest tests/unit/ -k artifact_reconcile -v -m unit"
+
+  - kind: ci
+    description: "mypy --strict passes on new artifact_reconcile CLI module."
+    command: "uv run mypy src/omnibase_infra/cli/artifact_reconcile.py --strict"
+
+  - kind: tests
+    description: "Full unit test suite passes with no regressions."
+    command: "uv run pytest tests/ -m unit -v"
+
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
