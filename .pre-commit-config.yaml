@@ -55,6 +55,13 @@ repos:
         files: ^(src/onex_change_control/|tests/).*\.py$  # Check both source and tests for consistency with CI
         pass_filenames: true # Only check changed files, not entire codebase
         stages: [pre-push] # Moved to pre-push: ~1-5s for changed files only
+      - id: validate-string-versions
+        name: Reject hardcoded __version__ in __init__.py
+        language: system
+        entry: python scripts/validation/validate_string_versions.py
+        types: [python]
+        pass_filenames: true
+        stages: [pre-commit]
       - id: check-ai-slop
         name: Check for AI-slop patterns
         language: system
