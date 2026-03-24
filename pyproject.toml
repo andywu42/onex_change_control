@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "colorama>=0.4.6",
     "tomli_w>=1.0.0",
+    "omnibase-core>=0.30.2,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,15 @@ check-omnidash-health = "onex_change_control.scripts.check_omnidash_health:main"
 check-boundary-parity = "onex_change_control.scripts.check_boundary_parity:main"
 check-todo-format = "onex_change_control.scripts.check_todo_format:main"
 check-migration-conflicts = "onex_change_control.scripts.check_migration_conflicts:main"
+
+[tool.uv.sources]
+omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", branch = "main" }
+
+[project.entry-points."onex.nodes"]
+node_contract_drift_compute = "onex_change_control.nodes.node_contract_drift_compute.node:NodeContractDriftCompute"
+node_contract_drift_reducer = "onex_change_control.nodes.node_contract_drift_reducer.node:NodeContractDriftReducer"
+node_contract_drift_orchestrator = "onex_change_control.nodes.node_contract_drift_orchestrator.node:NodeContractDriftOrchestrator"
+node_contract_drift_effect = "onex_change_control.nodes.node_contract_drift_effect.node:NodeContractDriftEffect"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/onex_change_control"]
@@ -90,7 +100,7 @@ ignore = [
 "src/onex_change_control/__main__.py" = ["T201", "PLC0415"]  # CLI output + lazy import for module-level entry point
 "src/onex_change_control/scripts/**" = ["PLC0415", "T201"]  # CLI scripts use print for output; lazy imports for optional deps
 "src/onex_change_control/kafka/**" = ["PLC0415", "S110", "PLR0913", "RUF002"]  # Lazy kafka-python import for optional dep; S110/PLR0913/RUF002 intentional
-"tests/**" = ["S603", "PLR2004", "PLC0415"]  # subprocess calls, magic values, late imports in tests
+"tests/**" = ["S603", "PLR2004", "PLC0415", "SLF001"]  # subprocess calls, magic values, late imports, private member access in tests
 "scripts/**" = ["T201", "INP001", "PLC0415"]  # CLI scripts use print for output; not a package; lazy imports for conditional paths
 
 [tool.pytest.ini_options]
@@ -133,6 +143,10 @@ plugins = ["pydantic.mypy"]
 mypy_path = "src:standards:scripts"
 namespace_packages = true
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "omnibase_core.*"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "ruamel.*"
