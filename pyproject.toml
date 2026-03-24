@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "colorama>=0.4.6",
     "tomli_w>=1.0.0",
+    "omnibase-core>=0.30.2,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,15 @@ check-omnidash-health = "onex_change_control.scripts.check_omnidash_health:main"
 check-boundary-parity = "onex_change_control.scripts.check_boundary_parity:main"
 check-todo-format = "onex_change_control.scripts.check_todo_format:main"
 check-migration-conflicts = "onex_change_control.scripts.check_migration_conflicts:main"
+
+[tool.uv.sources]
+omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", branch = "main" }
+
+[project.entry-points."onex.nodes"]
+node_contract_drift_compute = "onex_change_control.nodes.node_contract_drift_compute.node:NodeContractDriftCompute"
+node_contract_drift_reducer = "onex_change_control.nodes.node_contract_drift_reducer.node:NodeContractDriftReducer"
+node_contract_drift_orchestrator = "onex_change_control.nodes.node_contract_drift_orchestrator.node:NodeContractDriftOrchestrator"
+node_contract_drift_effect = "onex_change_control.nodes.node_contract_drift_effect.node:NodeContractDriftEffect"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/onex_change_control"]
@@ -133,6 +143,10 @@ plugins = ["pydantic.mypy"]
 mypy_path = "src:standards:scripts"
 namespace_packages = true
 explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "omnibase_core.*"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "ruamel.*"
