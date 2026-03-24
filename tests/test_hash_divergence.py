@@ -56,7 +56,7 @@ def test_hash_divergence_on_clean_contract(
         )
 
         registry = ContractHashRegistry()
-        core_fingerprint = registry.compute_contract_fingerprint(base_compute_contract)
+        core_fingerprint = registry.compute_contract_fingerprint(base_compute_contract)  # type: ignore[attr-defined]
         # Extract hash portion from fingerprint
         # Document whether they match — this test is informational, not a gate
         assert local_hash != str(core_fingerprint), (
