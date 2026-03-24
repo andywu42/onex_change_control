@@ -42,8 +42,8 @@ class NodeContractDriftCompute:
             str,
             type[object],
         ] = {}
-        self.register_computation("contract_drift", self._run_hash_only)  # type: ignore[arg-type]
-        self.register_computation("contract_drift_detailed", self._run_detailed)  # type: ignore[arg-type]
+        self.register_computation("contract_drift", self._run_hash_only)
+        self.register_computation("contract_drift_detailed", self._run_detailed)
 
     def register_computation(self, name: str, fn: object) -> None:
         """Register a named computation function."""
