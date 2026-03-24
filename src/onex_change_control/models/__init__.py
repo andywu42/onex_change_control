@@ -16,6 +16,13 @@ from onex_change_control.models.model_autopilot_cycle import (
     ModelAutopilotCycleRecord,
     ModelAutopilotStepResult,
 )
+from onex_change_control.models.model_contract_drift_input import (
+    ModelContractDriftInput,
+)
+from onex_change_control.models.model_contract_drift_output import (
+    ModelContractDriftOutput,
+    ModelFieldChange,
+)
 from onex_change_control.models.model_day_close import ModelDayClose
 from onex_change_control.models.model_day_open import (
     ModelDayOpen,
@@ -54,6 +61,8 @@ __all__ = [
     "EnumAutopilotStepStatus",
     "ModelAutopilotCycleRecord",
     "ModelAutopilotStepResult",
+    "ModelContractDriftInput",
+    "ModelContractDriftOutput",
     "ModelDayClose",
     "ModelDayOpen",
     "ModelDayOpenFinding",
@@ -67,6 +76,7 @@ __all__ = [
     "ModelDodSweepCheckResult",
     "ModelDodSweepResult",
     "ModelDodSweepTicketResult",
+    "ModelFieldChange",
     "ModelGoldenPath",
     "ModelGoldenPathAssertion",
     "ModelGoldenPathInput",
