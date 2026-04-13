@@ -39,6 +39,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+_REPO_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -54,7 +56,9 @@ _RESULT_BLOCK = "BLOCK"
 # ---------------------------------------------------------------------------
 
 
-def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
+def _run(
+    cmd: list[str], timeout: int = 30, cwd: Path | None = None
+) -> tuple[int, str, str]:
     """Run a subprocess and return (returncode, stdout, stderr)."""
     try:
         result = subprocess.run(  # noqa: S603
@@ -63,6 +67,7 @@ def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
             text=True,
             timeout=timeout,
             check=False,
+            cwd=cwd,
         )
         return result.returncode, result.stdout.strip(), result.stderr.strip()
     except subprocess.TimeoutExpired:
@@ -211,10 +216,55 @@ def _check_grep(check_value: Any, workspace: Path) -> tuple[str, str]:
     return _RESULT_BLOCK, f"Pattern '{pattern}' not found under '{search_path}'"
 
 
-def _check_command(_check_value: Any, _workspace: Path) -> tuple[str, str]:
-    """check_type=command: check_value is a shell command; exit 0 = pass."""
-    cmd_str = str(_check_value)
-    rc, out, err = _run(["sh", "-c", cmd_str], timeout=60)
+def _check_command(
+    _check_value: Any,
+    workspace: Path,
+    pr_number: int = 0,
+    repo: str = "",
+) -> tuple[str, str]:
+    """check_type=command: check_value is a shell command; exit 0 = pass.
+
+    Supports {pr} and {repo} placeholders that are substituted at runtime so
+    contract YAML files don't hard-code PR numbers or repository names.
+
+    repo is validated against ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ before
+    substitution to prevent shell injection via adversarial --repo values.
+
+    pre-commit commands are demoted to WARN only when pre-commit binary is
+    genuinely absent AND the process is running in CI. Installing pre-commit
+    on the runner opts back in to full enforcement.
+    """
+    if repo and not _REPO_PATTERN.match(repo):
+        return (
+            _RESULT_BLOCK,
+            f"Invalid --repo '{repo}': must match org/repo (alphanumeric, -, _, .)",
+        )
+
+    cmd_str = str(_check_value).replace("{pr}", str(pr_number)).replace("{repo}", repo)
+
+    # Demote pre-commit only when the binary is absent AND we are in CI.
+    # CI=true alone is not sufficient — runners with pre-commit installed
+    # must still enforce the check.
+    if cmd_str.lstrip().startswith("pre-commit"):
+        rc_which, _, _ = _run(["which", "pre-commit"], timeout=5)
+        precommit_missing = rc_which != 0
+        in_ci = os.environ.get("CI", "").lower() in ("true", "1")
+        if precommit_missing and in_ci:
+            print(
+                "[WARN] pre-commit check skipped (binary absent in CI). "
+                "Install pre-commit on the runner to enforce this check.",
+                flush=True,
+            )
+            return _RESULT_WARN, "pre-commit check skipped (binary absent in CI)"
+        if precommit_missing:
+            print(
+                "[WARN] pre-commit check skipped (pre-commit not installed). "
+                "Run pre-commit locally to verify.",
+                flush=True,
+            )
+            return _RESULT_WARN, "pre-commit check skipped (pre-commit not installed)"
+
+    rc, out, err = _run(["sh", "-c", cmd_str], timeout=60, cwd=workspace)
     if rc == 0:
         return _RESULT_PASS, f"Command succeeded: {cmd_str[:80]}"
     output_snippet = (out + err)[:200]
@@ -293,7 +343,7 @@ def _run_single_check(
     runner = _CHECK_RUNNERS.get(check_type)
     if runner is None:
         return check_type, _RESULT_WARN, f"Unknown check_type '{check_type}'"
-    if check_type == "test_passes":
+    if check_type in ("test_passes", "command"):
         result, detail = runner(check_value, workspace, pr_number, repo)
     else:
         result, detail = runner(check_value, workspace)

@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "ci"))
 from run_contract_compliance_check import (  # type: ignore[import-not-found]
     _RESULT_BLOCK,
     _RESULT_PASS,
+    _RESULT_WARN,
     _check_command,
     _check_file_exists,
     _check_grep,
@@ -147,6 +148,124 @@ def test_check_command_pass(tmp_path: Path) -> None:
 def test_check_command_block(tmp_path: Path) -> None:
     result, _ = _check_command("exit 1", tmp_path)
     assert result == _RESULT_BLOCK
+
+
+def test_check_command_placeholder_substitution(tmp_path: Path) -> None:
+    """Placeholders {pr} and {repo} must be substituted before sh -c is called."""
+    captured: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> tuple[int, str, str]:
+        captured.append(cmd)
+        return 0, "", ""
+
+    with patch("run_contract_compliance_check._run", side_effect=fake_run):
+        result, _ = _check_command(
+            "gh pr view {pr} --repo {repo} --json state",
+            tmp_path,
+            pr_number=586,
+            repo="OmniNode-ai/omnidash",
+        )
+
+    assert result == _RESULT_PASS
+    assert captured, "No subprocess call captured — _run was never invoked"
+    # The final sh -c call must contain the substituted shell string
+    shell_cmd = captured[-1]
+    assert shell_cmd[0] == "sh", f"Unexpected command: {shell_cmd}"
+    assert shell_cmd[1] == "-c", f"Unexpected command: {shell_cmd}"
+    shell_str = shell_cmd[2]
+    assert "586" in shell_str, f"PR number not substituted in shell cmd: {shell_str!r}"
+    assert "OmniNode-ai/omnidash" in shell_str, f"repo not substituted: {shell_str!r}"
+    assert "{pr}" not in shell_str, f"Literal {{pr}} not replaced: {shell_str!r}"
+    assert "{repo}" not in shell_str, f"Literal {{repo}} not replaced: {shell_str!r}"
+    expected = "gh pr view 586 --repo OmniNode-ai/omnidash --json state"
+    assert shell_str == expected, f"Unexpected shell cmd: {shell_str!r}"
+
+
+def test_check_command_workspace_passed_as_cwd(tmp_path: Path) -> None:
+    """_check_command must pass workspace as cwd to subprocess."""
+    captured_cwd: list[Path | None] = []
+
+    def fake_run(
+        _cmd: list[str], cwd: Path | None = None, **_kwargs: object
+    ) -> tuple[int, str, str]:
+        captured_cwd.append(cwd)
+        return 0, "", ""
+
+    workspace = tmp_path / "my_workspace"
+    workspace.mkdir()
+    with patch("run_contract_compliance_check._run", side_effect=fake_run):
+        result, _ = _check_command("echo hello", workspace)
+
+    assert result == _RESULT_PASS
+    assert captured_cwd[-1] == workspace, (
+        f"Expected cwd={workspace}, got cwd={captured_cwd[-1]}"
+    )
+
+
+def test_check_command_invalid_repo_blocks(tmp_path: Path) -> None:
+    """Adversarial repo value must be rejected before shell substitution."""
+    result, detail = _check_command(
+        "gh pr view {pr} --repo {repo}",
+        tmp_path,
+        pr_number=1,
+        repo="evil; rm -rf /",
+    )
+    assert result == _RESULT_BLOCK
+    assert "Invalid" in detail
+
+
+def test_check_command_precommit_missing_not_ci_warns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When pre-commit is absent outside CI, demote to WARN."""
+    monkeypatch.delenv("CI", raising=False)
+    with patch(
+        "run_contract_compliance_check._run",
+        side_effect=[
+            (1, "", "not found"),  # which pre-commit → not installed
+        ],
+    ):
+        result, detail = _check_command("pre-commit run --all-files", tmp_path)
+    assert result == _RESULT_WARN
+    assert detail == "pre-commit check skipped (pre-commit not installed)"
+
+
+def test_check_command_precommit_absent_and_ci_warns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Binary absent + CI=true demotes to WARN."""
+    monkeypatch.setenv("CI", "true")
+    with patch(
+        "run_contract_compliance_check._run",
+        side_effect=[
+            (1, "", "not found"),  # which pre-commit → not installed
+        ],
+    ):
+        result, detail = _check_command("pre-commit run --all-files", tmp_path)
+    assert result == _RESULT_WARN
+    assert "skipped" in detail
+
+
+def test_check_command_precommit_present_in_ci_enforces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """pre-commit installed + CI=true must still run the check (no blanket demotion)."""
+    monkeypatch.setenv("CI", "true")
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_kwargs: object) -> tuple[int, str, str]:
+        calls.append(cmd)
+        if cmd == ["which", "pre-commit"]:
+            return 0, "/usr/bin/pre-commit", ""
+        return 0, "", ""
+
+    with patch("run_contract_compliance_check._run", side_effect=fake_run):
+        result, _ = _check_command("pre-commit run --all-files", tmp_path)
+    assert result == _RESULT_PASS
+    assert calls == [
+        ["which", "pre-commit"],
+        ["sh", "-c", "pre-commit run --all-files"],
+    ]
 
 
 # ---------------------------------------------------------------------------
