@@ -154,6 +154,21 @@ repos:
         files: ^contracts/OMN-.*\.yaml$
         pass_filenames: true
         stages: [pre-commit]
+      - id: lint-contract-check-values
+        name: Contract check_value fail-open pattern lint (OMN-9350)
+        entry: uv run python scripts/lint_contract_check_values.py
+        language: system
+        files: ^contracts/.*\.yaml$
+        pass_filenames: true
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: normalization-symmetry
+        name: normalization-symmetry
+        entry: uv run python -m omnibase_core.validation.checker_normalization_symmetry
+        language: system
+        pass_filenames: false
 
 # Configuration
 default_install_hook_types: [pre-commit, pre-push]

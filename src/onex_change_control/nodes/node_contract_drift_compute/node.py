@@ -15,10 +15,10 @@ from onex_change_control.handlers.handler_drift_analysis import (
     analyze_drift_with_pinned_contract,
 )
 from onex_change_control.models.model_contract_drift_input import (
-    ModelContractDriftInput,  # noqa: TC001
+    ModelContractDriftInput,  # noqa: TC001  Why: Pydantic model needs runtime type for field annotation
 )
 from onex_change_control.models.model_contract_drift_output import (
-    ModelContractDriftOutput,  # noqa: TC001
+    ModelContractDriftOutput,  # noqa: TC001  Why: Pydantic model needs runtime type for field annotation
 )
 
 if TYPE_CHECKING:
@@ -40,14 +40,14 @@ class NodeContractDriftCompute:
         self._container = container
         self._computations: dict[
             str,
-            type[object],
+            object,
         ] = {}
         self.register_computation("contract_drift", self._run_hash_only)
         self.register_computation("contract_drift_detailed", self._run_detailed)
 
     def register_computation(self, name: str, fn: object) -> None:
         """Register a named computation function."""
-        self._computations[name] = fn  # type: ignore[assignment]
+        self._computations[name] = fn
 
     def _run_hash_only(self, data: ModelContractDriftInput) -> ModelContractDriftOutput:
         return analyze_drift(data)

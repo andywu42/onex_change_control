@@ -52,7 +52,9 @@ def _build_envelope(topic: str, payload: dict[str, Any]) -> bytes:
 def _try_produce(topic: str, payload: dict[str, Any]) -> None:
     """Attempt to produce a single Kafka message. Silently no-ops on failure."""
     try:
-        from kafka import KafkaProducer  # type: ignore[import-not-found]
+        from kafka import (  # type: ignore[import-not-found]  # Why: kafka-python is an optional dep, not installed in all environments
+            KafkaProducer,
+        )
     except ImportError:
         return
 
@@ -65,7 +67,7 @@ def _try_produce(topic: str, payload: dict[str, Any]) -> None:
         producer.send(topic, _build_envelope(topic, payload))
         producer.flush(timeout=3)
         producer.close()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001  Why: best-effort Kafka emission must never fail the CLI
         # Best-effort: never fail the CLI because Kafka is unavailable
         pass
 

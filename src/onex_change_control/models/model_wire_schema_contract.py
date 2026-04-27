@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from onex_change_control.enums.enum_wire_field_type import (
-    EnumWireFieldType,  # noqa: TC001 - Pydantic needs runtime access
+    EnumWireFieldType,  # noqa: TC001  Why: Pydantic model needs runtime type for field annotation
 )
 
 
@@ -129,7 +129,9 @@ class ModelWireSchemaContract(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     topic: str = Field(..., description="Kafka topic name")
-    schema_version: str = Field(..., description="Schema version (semver)")
+    schema_version: str = Field(
+        ..., description="Schema version (semver)"
+    )  # string-version-ok: wire type serialized to YAML/JSON at contract boundary
     ticket: str = Field(default="", description="Originating ticket")
     description: str = Field(default="", description="Contract description")
 
